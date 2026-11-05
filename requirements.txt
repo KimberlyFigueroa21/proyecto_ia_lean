@@ -1,0 +1,5 @@
+pydantic>=2
+langgraph
+pytest
+numpy
+scipy
