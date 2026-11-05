@@ -145,10 +145,10 @@ class LeanReplVerifier:
         if expected_statement and _norm(expected_statement) not in _norm(code):
             return False, "misformalization: statement differs from the dataset's"
         src = code + "".join(f"\n#print axioms {n}" for n in names)
-        try:
-            if self.restart_every and self._calls >= self.restart_every:
-                self.close()
-            self.start()
+        if self.restart_every and self._calls >= self.restart_every:
+            self.close()
+        self.start()      # fuera del try: si el REPL no arranca es un error de infraestructura
+        try:              # (se propaga), NO un veredicto sobre la prueba
             resp = self._request({"cmd": src, "env": self._env}, self.call_timeout)
             self._calls += 1
         except TimeoutError:

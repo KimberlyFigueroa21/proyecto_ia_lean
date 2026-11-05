@@ -76,3 +76,11 @@ def test_reinicio_periodico(tmp_path):
         for _ in range(5):
             assert verifier(OK)[0]
         assert verifier.starts == 3           # reinicios tras 2 y 4 llamadas
+
+
+def test_fallo_de_arranque_se_propaga_como_error(tmp_path):
+    from src.verifier_repl import ReplError
+    v = LeanReplVerifier(str(tmp_path), header="import Mathlib\n",
+                         repl_cmd=[sys.executable, "-c", "import sys; sys.exit(1)"])
+    with pytest.raises(ReplError):
+        v(OK)                                 # no debe devolver (False, "timeout"/"repl_error")
