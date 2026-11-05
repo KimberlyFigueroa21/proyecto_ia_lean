@@ -37,6 +37,21 @@ class ServiceUnavailable(RuntimeError):
     pass
 
 
+DEFAULT_HEADER_FILE = "data/header_minif2f.lean"
+
+
+def choose_header(header_file: str | None, minimal: bool) -> tuple[str, str]:
+    """Encabezado que el REPL carga una sola vez. Prioridad: --minimal > archivo > HEADER por defecto.
+    El archivo (data/header_minif2f.lean) debe coincidir con el del dataset para que enunciados y
+    pruebas se evalúen en el mismo entorno (p. ej. `open scoped Nat Real`, no `open Nat`)."""
+    if minimal:
+        return "import Mathlib.Data.Nat.Basic\n", "mínimo (solo pruebas de cableado)"
+    path = Path(header_file or DEFAULT_HEADER_FILE)
+    if path.is_file():
+        return path.read_text(encoding="utf-8").rstrip("\n") + "\n", f"archivo {path}"
+    return HEADER, "HEADER por defecto (no se encontró " + str(path) + ")"
+
+
 def _log(msg: str):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
 
@@ -153,13 +168,15 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--call-timeout", type=float, default=300)
+    ap.add_argument("--header-file", default=None,
+                    help=f"encabezado .lean a cargar (por defecto {DEFAULT_HEADER_FILE} si existe)")
     ap.add_argument("--pidfile", default="logs/verify_server.pid")
     ap.add_argument("--repl-cmd", default=None, help=argparse.SUPPRESS)   # solo para pruebas (lista JSON)
     ap.add_argument("--minimal", action="store_true",
                     help="encabezado con import pequeño (pruebas de cableado, arranca en segundos)")
     a = ap.parse_args()
 
-    header = "import Mathlib.Data.Nat.Basic\n" if a.minimal else HEADER
+    header, header_src = choose_header(a.header_file, a.minimal)
     verifier = LeanReplVerifier(a.project, repl_bin=a.repl_bin, header=header,
                                 call_timeout=a.call_timeout, restart_every=None,
                                 repl_cmd=json.loads(a.repl_cmd) if a.repl_cmd else None)
@@ -168,7 +185,8 @@ def main():
     pidfile = Path(a.pidfile)
     pidfile.parent.mkdir(parents=True, exist_ok=True)
     pidfile.write_text(str(os.getpid()))                 # para detenerlo con: kill $(cat logs/verify_server.pid)
-    _log(f"escuchando en http://{a.host}:{a.port}  (encabezado: {header.splitlines()[0]})")
+    _log(f"escuchando en http://{a.host}:{a.port}")
+    _log(f"encabezado: {header_src}: " + " ; ".join(header.splitlines()))
     service.start_async()
     _log("arrancando el REPL; con `import Mathlib` completo tarda varios minutos")
 

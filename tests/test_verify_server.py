@@ -10,7 +10,7 @@ import pytest
 
 from src.verifier_repl import LeanReplVerifier
 from src.verify_client import RemoteVerifier, VerifierUnavailable
-from src.verify_server import VerifyService, make_server
+from src.verify_server import VerifyService, choose_header, make_server
 
 FAKE = str(Path(__file__).parent / "fake_repl.py")
 OK = "theorem t1 (a b : ℕ) : a + b = b + a := by omega"
@@ -109,3 +109,13 @@ def test_fallo_de_arranque_no_es_un_veredicto(tmp_path):
     finally:
         server.shutdown()
         verifier.close()
+
+
+def test_choose_header(tmp_path):
+    f = tmp_path / "h.lean"
+    f.write_text("import Mathlib\nopen scoped Nat Real\n\n\n", encoding="utf-8")
+    text, src = choose_header(str(f), minimal=False)
+    assert text == "import Mathlib\nopen scoped Nat Real\n" and "h.lean" in src
+    assert choose_header(str(f), minimal=True)[0].startswith("import Mathlib.Data.Nat.Basic")
+    text, src = choose_header(str(tmp_path / "no_existe.lean"), minimal=False)
+    assert text.startswith("import Mathlib") and "no se encontró" in src

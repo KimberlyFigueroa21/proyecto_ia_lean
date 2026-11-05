@@ -3,3 +3,4 @@ langgraph
 pytest
 numpy
 scipy
+google-genai==2.34.0
