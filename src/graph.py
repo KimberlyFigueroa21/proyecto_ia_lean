@@ -11,6 +11,7 @@ from langgraph.graph import StateGraph, START, END
 
 from .contracts import (Action, RunConfig, PlannerIn, PlannerOut, Lemma,
                         GeneratorIn, FormalizerIn, VerifierOut, CriticIn, CriticOut)
+from .agents import (assemble_code, build_formalizer_text, build_generator_text, parse_subgoals)
 from .llm import LLM
 from .logger import JsonlLogger
 
@@ -32,6 +33,7 @@ class GraphState(TypedDict, total=False):
     history: list[dict]
     proofs: list[str]      # pruebas Lean aceptadas por subobjetivo
     llm_calls: int
+    statement_lean: str    # modo teorema completo: enunciado fijo del dataset (si falta, modo por subobjetivos)
     status: str            # RUNNING | DONE | FAIL
     failure_reason: str
 
@@ -40,6 +42,7 @@ def build_graph(llm: LLM, retriever, verifier, cfg: RunConfig, logger: JsonlLogg
                 prompts: dict[str, str] | None = None):
     """retriever(subgoal, k) -> list[Lemma-like dict];  verifier(lean_code) -> (bool, trace)."""
     P = prompts or {}
+    whole = lambda s: bool(s.get("statement_lean"))      # modo teorema completo
 
     def _llm(agent: str, text: str):
         t0 = time.perf_counter()
@@ -59,13 +62,14 @@ def build_graph(llm: LLM, retriever, verifier, cfg: RunConfig, logger: JsonlLogg
         inp = PlannerIn(problem=state["problem"])
         hint = f"\nHINT: {state['hint']}" if state.get("hint") else ""
         res, ms = _llm("planner", inp.problem + hint)
-        out = PlannerOut(subgoals=[s.strip() for s in res.text.splitlines() if s.strip()])
-        _log(state, "planner", f"{len(out.subgoals)} subgoals", res, ms)
+        steps = parse_subgoals(res.text)
+        out = PlannerOut(subgoals=steps or [state["problem"]])     # respuesta inservible: un solo paso
+        _log(state, "planner", f"{len(out.subgoals)} subgoals" if steps else "fallback", res, ms)
         return {"subgoals": out.subgoals, "i": 0, "k": 0, "proofs": [],
                 "llm_calls": state.get("llm_calls", 0) + 1}
 
     def retrieve(state: GraphState):
-        sg = state["subgoals"][state["i"]]
+        sg = state["problem"] if whole(state) else state["subgoals"][state["i"]]
         if not cfg.use_rag:
             _log(state, "retriever", "skipped")
             return {"retrieved": []}
@@ -75,21 +79,34 @@ def build_graph(llm: LLM, retriever, verifier, cfg: RunConfig, logger: JsonlLogg
         return {"retrieved": lemmas}
 
     def generate(state: GraphState):
-        inp = GeneratorIn(subgoal=state["subgoals"][state["i"]],
-                          lemmas=state.get("retrieved", []), hint=state.get("hint"))
-        res, ms = _llm("generator", inp.model_dump_json())
+        if whole(state):
+            text = build_generator_text(state)
+        else:
+            text = GeneratorIn(subgoal=state["subgoals"][state["i"]], lemmas=state.get("retrieved", []),
+                               hint=state.get("hint")).model_dump_json()
+        res, ms = _llm("generator", text)
         _log(state, "generator", "sketch", res, ms)
         return {"sketch": res.text, "llm_calls": state.get("llm_calls", 0) + 1}
 
     def formalize(state: GraphState):
-        inp = FormalizerIn(sketch=state["sketch"], lemmas=state.get("retrieved", []))
-        res, ms = _llm("formalizer", inp.model_dump_json())
-        _log(state, "formalizer", "lean_code", res, ms)
-        return {"lean_code": res.text, "llm_calls": state.get("llm_calls", 0) + 1}
+        if whole(state):
+            res, ms = _llm("formalizer", build_formalizer_text(state))
+            code = assemble_code(state["statement_lean"], res.text)
+        else:
+            inp = FormalizerIn(sketch=state["sketch"], lemmas=state.get("retrieved", []))
+            res, ms = _llm("formalizer", inp.model_dump_json())
+            code = res.text
+        _log(state, "formalizer", "lean_code" if code else "no_tactics", res, ms)
+        return {"lean_code": code, "llm_calls": state.get("llm_calls", 0) + 1}
 
     def verify(state: GraphState):
         t0 = time.perf_counter()
-        ok, trace = verifier(state["lean_code"])
+        if not state["lean_code"]:                    # nada que verificar: fallo de formalización, no de infraestructura
+            ok, trace = False, "formalization_failure: el modelo no produjo tácticas"
+        elif whole(state):
+            ok, trace = verifier(state["lean_code"], state["statement_lean"])   # compara con el enunciado del dataset
+        else:
+            ok, trace = verifier(state["lean_code"])
         out = VerifierOut(verdict=ok, trace=trace)
         _log(state, "verifier", "accepted" if ok else "rejected", ms=int((time.perf_counter() - t0) * 1000))
         hist = state.get("history", []) + [{"i": state["i"], "k": state.get("k", 0),
@@ -97,8 +114,8 @@ def build_graph(llm: LLM, retriever, verifier, cfg: RunConfig, logger: JsonlLogg
         return {"verdict": out.verdict, "trace": out.trace, "history": hist}
 
     def advance(state: GraphState):
-        return {"proofs": state.get("proofs", []) + [state["lean_code"]],
-                "i": state["i"] + 1, "k": 0, "hint": ""}
+        nxt = len(state["subgoals"]) if whole(state) else state["i"] + 1   # teorema completo: una sola verificación
+        return {"proofs": state.get("proofs", []) + [state["lean_code"]], "i": nxt, "k": 0, "hint": ""}
 
     def critique(state: GraphState):
         k = state.get("k", 0) + 1
@@ -151,7 +168,9 @@ def build_graph(llm: LLM, retriever, verifier, cfg: RunConfig, logger: JsonlLogg
     return g.compile()
 
 
-def run_problem(graph, problem_id: str, problem: str) -> GraphState:
-    return graph.invoke({"problem_id": problem_id, "problem": problem, "history": [],
-                         "llm_calls": 0, "status": "RUNNING", "r": 0, "k": 0, "i": 0},
-                        config={"recursion_limit": 200})
+def run_problem(graph, problem_id: str, problem: str, statement_lean: str | None = None) -> GraphState:
+    init = {"problem_id": problem_id, "problem": problem, "history": [],
+            "llm_calls": 0, "status": "RUNNING", "r": 0, "k": 0, "i": 0}
+    if statement_lean:
+        init["statement_lean"] = statement_lean
+    return graph.invoke(init, config={"recursion_limit": 200})
