@@ -1,4 +1,4 @@
-from src.dataset import check_statements, error_kinds, parse_minif2f
+from src.dataset import check_statements, classify_area, conclusion, error_kinds, is_cardinality_goal, parse_minif2f
 
 SAMPLE = '''/-
 Copyright (c) 2021 OpenAI.
@@ -85,6 +85,7 @@ def test_dificultad_y_area():
     assert (P["mathd_algebra_478"]["difficulty"], P["mathd_algebra_478"]["area"]) == ("basico", "algebra")
     assert P["amc12_2001_p1"]["difficulty"] == "intermedio" and P["amc12_2001_p1"]["area"] == "conteo"
     assert P["aime_1983_p9"]["difficulty"] == "avanzado" and P["aime_1983_p9"]["area_source"] == "heuristica"
+    assert P["amc12_2001_p1"]["area_source"] == "enunciado"
     assert P["imo_1959_p1"]["area"] == "teoria_de_numeros"
     assert P["numbertheory_4x3m7y3neq2003"]["difficulty"] == "sin_clasificar"
 
@@ -121,3 +122,21 @@ def test_la_nota_se_asigna_al_teorema_siguiente():
     assert "simplificada" in P["mathd_algebra_999"]["maintainer_note"]
     assert "comentario de bloque" in P["imo_1959_p1"]["maintainer_note"]
     assert P["mathd_algebra_478"]["maintainer_note"] == ""
+
+
+def test_conclusion_y_meta_de_cardinalidad():
+    assert conclusion("theorem t (S : Finset ℤ) (h : x ∈ S ↔ a := 1) :\n    S.card = 11") == "S.card = 11"
+    assert conclusion("theorem t : 1 = 1") == "1 = 1"
+    assert is_cardinality_goal("theorem t (S : Finset ℕ) (h₀ : ∀ n, n ∈ S ↔ 5 ∣ n) :\n    S.card = 100")
+    assert is_cardinality_goal("theorem t : Finset.card (Finset.Icc 1 3) = 3")
+    # una cardinalidad en una HIPÓTESIS o en la definición de f no vuelve conteo al problema
+    assert not is_cardinality_goal("theorem t (m n : ℕ) (h : (Nat.divisors m).card = 4) : ∑ k ∈ S, k = 2016")
+    assert not is_cardinality_goal("theorem t (f : ℕ → ℝ) (h₀ : ∀ n, f n = (Nat.divisors n).card / n) : "
+                                   "(Nat.digits 10 N).sum = 9")
+    assert not is_cardinality_goal(None)
+
+
+def test_la_meta_de_cardinalidad_manda_sobre_el_nombre():
+    assert classify_area("mathd_algebra_170", "theorem x (S : Finset ℤ) : S.card = 11") == ("conteo", "enunciado")
+    assert classify_area("imo_1974_p3", "theorem x (n : ℕ) : ¬ 5 ∣ ∑ k ∈ Finset.range (n + 1), "
+                         "Nat.choose (2 * n + 1) (2 * k + 1) * 2 ^ (3 * k)") == ("teoria_de_numeros", "heuristica")

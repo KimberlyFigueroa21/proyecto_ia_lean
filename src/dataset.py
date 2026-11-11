@@ -40,15 +40,38 @@ DIFFICULTY = {"mathd": "basico", "amc12": "intermedio", "aime": "avanzado", "imo
               "otro": "sin_clasificar"}
 
 
+CARDINALITY = re.compile(r"\.card\b|Finset\.card\b|Nat\.card\b|\.ncard\b")
+
+
+def conclusion(statement: str) -> str:
+    """Lo que viene tras el último ':' de nivel 0 (fuera de paréntesis y de ':='): la meta del teorema."""
+    depth, cut = 0, -1
+    for i, ch in enumerate(statement):
+        if ch in "([{⟨":
+            depth += 1
+        elif ch in ")]}⟩":
+            depth -= 1
+        elif ch == ":" and depth == 0 and statement[i + 1:i + 2] != "=":
+            cut = i
+    return statement[cut + 1:].strip() if cut >= 0 else ""
+
+
+def is_cardinality_goal(statement: str | None) -> bool:
+    """La meta es el tamaño de un conjunto (`S.card = k`): problema de conteo, sea cual sea la técnica.
+    Criterio objetivo y auditable desde el enunciado en Lean (una palabra clave en una hipótesis no cuenta)."""
+    return bool(statement) and bool(CARDINALITY.search(conclusion(statement)))
+
+
 def classify_area(name: str, statement: str | None) -> tuple[str, str]:
-    """(area, fuente). 'nombre' = viene del nombre del problema; 'heuristica' = revisar a mano."""
+    """(area, fuente). 'enunciado' = la meta es una cardinalidad; 'nombre' = viene del nombre del problema;
+    'heuristica' = palabras clave en el enunciado (revisar a mano)."""
+    if is_cardinality_goal(statement):
+        return "conteo", "enunciado"
     if "numbertheory" in name:
         return "teoria_de_numeros", "nombre"
     if "algebra" in name:
         return "algebra", "nombre"
     s = statement or ""
-    if COUNT_HINT.search(s):
-        return "conteo", "heuristica"
     if NT_HINT.search(s):
         return "teoria_de_numeros", "heuristica"
     return "algebra", "heuristica"
