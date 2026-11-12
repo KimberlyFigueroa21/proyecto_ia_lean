@@ -11,7 +11,8 @@ from langgraph.graph import StateGraph, START, END
 
 from .contracts import (Action, RunConfig, PlannerIn, PlannerOut, Lemma,
                         GeneratorIn, FormalizerIn, VerifierOut, CriticIn, CriticOut)
-from .agents import (assemble_code, build_formalizer_text, build_generator_text, parse_subgoals)
+from .agents import (assemble_code, build_critic_text, build_formalizer_text, build_generator_text,
+                    parse_critic, parse_subgoals)
 from .llm import LLM
 from .logger import JsonlLogger
 
@@ -127,8 +128,11 @@ def build_graph(llm: LLM, retriever, verifier, cfg: RunConfig, logger: JsonlLogg
         if calls >= cfg.max_llm_calls:
             _log(state, "critic", "FAIL (budget)")
             return {"action": Action.FAIL.value, "k": k, "failure_reason": "llm_budget"}
-        res, ms = _llm("critic", CriticIn(trace=state["trace"], history=state["history"]).model_dump_json())
-        proposed = CriticOut.model_validate_json(res.text)
+        text = (build_critic_text({**state, "k": k - 1}) if whole(state)
+                else CriticIn(trace=state["trace"], history=state["history"]).model_dump_json())
+        res, ms = _llm("critic", text)
+        act, hint = parse_critic(res.text)                       # tolerante: nunca rompe la corrida
+        proposed = CriticOut(action=Action(act), hint=hint)
         if proposed.action == Action.REPLAN and r < cfg.r_max:
             action, upd = Action.REPLAN, {"r": r + 1, "k": 0}
         elif proposed.action in (Action.RETRY, Action.REPLAN) and k < cfg.k_max:

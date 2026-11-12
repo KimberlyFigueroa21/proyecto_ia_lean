@@ -50,6 +50,7 @@ def test_e2e_sin_rag_ni_critico_acierta(tmp_path):
     rec, llm, rows = run(tmp_path, {"planner": [PLAN], "generator": ["use omega"], "formalizer": [GOOD]}, ver,
                          model="m-test")
     assert rec["verified"] and rec["status"] == "DONE" and rec["llm_calls"] == 3 and rec["model"] == "m-test"
+    assert rec["sketch"] == "use omega"                        # la estrategia del Generator queda registrada
     assert seen["expected"] == P["statement_lean"] and seen["code"].endswith(":= by\n  omega")
     assert rec["subgoals"] == ["Reduce to commutativity.", "Close with omega."]
     assert [a for a, _ in llm.calls] == ["planner", "generator", "formalizer"]      # sin Crítico ni Retriever
@@ -116,3 +117,65 @@ def test_excepcion_de_infraestructura_se_propaga(tmp_path):
     except RuntimeError:
         return
     raise AssertionError("debía propagarse")
+
+
+def test_variantes_de_prompts_y_registro_de_variante(tmp_path):
+    from src.prompts import PROMPTS_BY_VARIANT
+    for v, ps in PROMPTS_BY_VARIANT.items():
+        assert set(ps) == {"planner", "generator", "formalizer", "critic"}, v
+        for name, tpl in ps.items():
+            assert tpl.format(x="Z").count("Z") == 1, (v, name)
+    assert len({ps["formalizer"] for ps in PROMPTS_BY_VARIANT.values()}) == len(PROMPTS_BY_VARIANT)
+    assert all("native_decide" in ps["formalizer"] for v, ps in PROMPTS_BY_VARIANT.items() if v != "v1")
+    assert "native_decide" in PROMPTS_BY_VARIANT["v2"]["formalizer"]          # prohíbe un axioma no estándar
+    llm = MockLLM({"planner": [PLAN], "generator": ["g"], "formalizer": [GOOD]})
+    rec = run_pipeline_problem(P, llm, lambda c, e=None: (True, ""), PRESETS["sin_rag_ni_critico"],
+                               JsonlLogger(tmp_path / "l.jsonl"), prompts=PROMPTS_BY_VARIANT["v2"], variant="v2")
+    assert rec["prompt_variant"] == "v2"
+    assert "Hedge with fallbacks" in llm.calls[2][1] and "Hedge with fallbacks" not in llm.calls[0][1]
+
+
+def test_load_split_y_comparador(tmp_path):
+    from compare_runs import table
+    from src.baselines import load_split
+    dev, test = load_split("dev"), load_split("test")
+    assert len(dev) == 10 and len(test) == 20 and not {p["id"] for p in dev} & {p["id"] for p in test}
+    a, b = tmp_path / "pipeline_a.jsonl", tmp_path / "pipeline_b.jsonl"
+    row = lambda i, ok: json.dumps({"problem_id": i, "verified": ok, "tokens_in": 10, "tokens_out": 5, "llm_calls": 3})
+    a.write_text(row("p1", True) + "\n" + row("p2", False) + "\n")
+    b.write_text(row("p1", True) + "\n" + row("p2", True) + "\n")
+    t = table([str(a), str(b)])
+    assert "TOTAL" in t and "1/2" in t and "2/2" in t
+
+
+# ---------- Crítico (modo teorema completo) ----------
+from src.agents import build_formalizer_text, parse_critic
+
+
+def test_parse_critic_formatos():
+    assert parse_critic("ACTION: REPLAN\nHINT: usa omega") == ("REPLAN", "usa omega")
+    assert parse_critic('```json\n{"action": "fail", "hint": "x"}\n```') == ("FAIL", "x")
+    assert parse_critic("Action: **RETRY**\nHint: quita el have") == ("RETRY", "quita el have")
+    assert parse_critic("no entiendo nada") == ("RETRY", "")
+    assert parse_critic("ACTION: RETRY\nHINT: no uses FAIL ni REPLAN aquí")[0] == "RETRY"
+
+
+def test_formalizer_ve_el_intento_fallido_solo_en_reintentos():
+    st = {"problem": "P", "sketch": "S", "statement_lean": "theorem t : True", "lean_code": "C", "trace": "ERR", "k": 0}
+    assert "Previous attempt" not in build_formalizer_text(st)
+    t = build_formalizer_text({**st, "k": 1})
+    assert "Previous attempt" in t and "ERR" in t and t.rstrip().endswith(":= by")
+
+
+def test_e2e_completo_reintenta_con_el_error_y_acierta(tmp_path):
+    seen = []
+
+    def verifier(code, expected=None):
+        seen.append(code)
+        return (("rw" not in code), "rewrite failed" if "rw" in code else "")
+
+    llm = MockLLM({"planner": ["a\nb"], "generator": ["sketch"],
+                   "formalizer": ["```lean\nrw [x]\nomega\n```", "```lean\nomega\n```"],
+                   "critic": ["ACTION: RETRY\nHINT: quita el rw"]})
+    rec = run_pipeline_problem(P, llm, verifier, PRESETS["sin_rag"], JsonlLogger(str(tmp_path / "l.jsonl")))
+    assert rec["verified"] and len(seen) == 2

@@ -37,7 +37,7 @@ def problem_text(p: dict) -> str:
 
 
 def run_pipeline_problem(p: dict, llm, verifier, cfg: RunConfig, logger, retriever=None,
-                         prompts=None, model: str = "") -> dict:
+                         prompts=None, model: str = "", variant: str = "") -> dict:
     meter = UsageMeter(llm)
     graph = build_graph(meter, retriever or (lambda sg, k: []), verifier, cfg, logger, prompts or PROMPTS)
     t = time.perf_counter()
@@ -45,9 +45,9 @@ def run_pipeline_problem(p: dict, llm, verifier, cfg: RunConfig, logger, retriev
     wall = time.perf_counter() - t
     ok = s.get("status") == "DONE"
     hist = s.get("history", [])
-    return {"config": cfg.name, "model": model, "problem_id": p["id"], "difficulty": p["difficulty"],
+    return {"config": cfg.name, "model": model, "prompt_variant": variant, "problem_id": p["id"], "difficulty": p["difficulty"],
             "area": p["area"], "verified": ok, "claimed_correct": ok, "status": s.get("status"),
             "failure_reason": s.get("failure_reason", ""), "trace": (hist[-1]["trace"] if hist else "")[:1000],
-            "lean_code": s.get("lean_code", ""), "subgoals": s.get("subgoals", []),
+            "lean_code": s.get("lean_code", ""), "subgoals": s.get("subgoals", []), "sketch": s.get("sketch", ""),
             "llm_calls": meter.calls, "tokens_in": meter.tokens_in, "tokens_out": meter.tokens_out,
             "latency_s": round(wall, 3), "r": s.get("r", 0), "k": s.get("k", 0)}

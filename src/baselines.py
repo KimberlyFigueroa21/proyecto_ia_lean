@@ -149,4 +149,12 @@ def run_b(p, llm, verifier, logger) -> dict:
             "latency_s": round(dt1 + dt2, 3), "verification_is_posthoc": True}
 
 
+def load_split(split: str, path="data/eval_set.jsonl"):
+    """Problemas del conjunto de evaluación (30) de un split: 'dev' o 'test'."""
+    if split not in ("dev", "test"):
+        raise ValueError("split debe ser 'dev' o 'test'")
+    rows = [json.loads(l) for l in Path(path).read_text(encoding="utf-8").splitlines() if l.strip()]
+    return [r for r in rows if r["split"] == split]
+
+
 RUNNERS = {"A": run_a, "B": run_b}
