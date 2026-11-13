@@ -32,12 +32,17 @@ def main() -> int:
     ap.add_argument("--thinking", default="low", help="razonamiento del modelo: low|medium|high|none")
     ap.add_argument("--max-tokens", type=int, default=8192)
     ap.add_argument("--out-dir", default="results")
+    ap.add_argument("--rag-index", default="rag_data/idx2", help="carpeta del índice de Mathlib (configs con RAG)")
+    ap.add_argument("--rag-query", choices=["plan", "lean", "plan+lean", "problem"], default=None,
+                    help="qué se busca en el índice (por defecto el de la configuración: plan)")
     a = ap.parse_args()
 
     if a.split == "test" and not a.ids and not a.allow_test:
         print("El conjunto de prueba solo se corre con el código congelado. Usa --allow-test si es el momento.")
         return 4
     cfg = PRESETS[a.config]
+    if a.rag_query:
+        cfg = cfg.model_copy(update={"rag_query": a.rag_query})
     if a.ids:
         problems, split = load_problems(ids=a.ids), "ids"
     elif a.split == "pilot":
@@ -45,13 +50,18 @@ def main() -> int:
     else:
         problems, split = load_split(a.split), a.split
     ids = [p["id"] for p in problems]
-    stem = f"pipeline_{cfg.name}_{split}_{a.prompt_variant}"
+    stem = f"pipeline_{cfg.name}_{split}_{a.prompt_variant}" + (f"_{cfg.rag_query}" if cfg.use_rag else "")
     out = Path(a.out_dir) / f"{stem}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     done = {json.loads(l)["problem_id"] for l in out.read_text(encoding="utf-8").splitlines() if l.strip()} \
         if out.exists() else set()
     logger = JsonlLogger(Path(a.out_dir) / f"{stem}_agentes.jsonl")
 
+    retriever = None
+    if cfg.use_rag:
+        from src.retriever import Retriever
+        retriever = Retriever(a.rag_index)
+        print(f"RAG: {retriever.info['count']} lemas, {retriever.info['model']}, consulta={cfg.rag_query}")
     verifier = RemoteVerifier()
     try:
         verifier.wait_ready()
@@ -63,7 +73,7 @@ def main() -> int:
             if p["id"] in done:
                 print(f"- {p['id']}: ya hecho, se salta")
                 continue
-            rec = run_pipeline_problem(p, llm, verifier, cfg, logger, model=model,
+            rec = run_pipeline_problem(p, llm, verifier, cfg, logger, model=model, retriever=retriever,
                                        prompts=PROMPTS_BY_VARIANT[a.prompt_variant], variant=a.prompt_variant)
             with out.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")

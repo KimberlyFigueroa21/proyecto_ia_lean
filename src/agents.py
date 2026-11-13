@@ -11,6 +11,7 @@ import re
 from .baselines import assemble, extract_tactics
 
 MAX_STEPS = 6
+MAX_SIG = 300            # recorte de la firma de cada lema en el prompt
 _MARK = re.compile(r"^\s*(?:[-*•]+\s+|\d+\s*[.)]\s*|step\s*\d+\s*[:.)]?\s*)", re.I)
 
 
@@ -31,6 +32,21 @@ def parse_subgoals(text: str, max_steps: int = MAX_STEPS) -> list[str]:
     return steps[:max_steps]
 
 
+def build_rag_queries(state: dict, mode: str = "plan") -> list[str]:
+    """Consultas para el RAG en modo teorema completo. `plan`: un paso del plan = una consulta corta (el
+    problema entero mezcla texto y Lean y recupera mal); `lean`: el enunciado formal, que se parece a las
+    firmas de Mathlib; `plan+lean`: ambas; `problem`: el texto completo (referencia)."""
+    steps = [s for s in state.get("subgoals", []) if s.strip()]
+    stmt = state.get("statement_lean", "")
+    if mode == "lean":
+        return [stmt or state["problem"]]
+    if mode == "plan+lean":
+        return ([stmt] if stmt else []) + (steps or [state["problem"]])
+    if mode == "problem":
+        return [state["problem"]]
+    return steps or [state["problem"]]
+
+
 def format_plan(subgoals: list[str]) -> str:
     return "\n".join(f"{i}. {s}" for i, s in enumerate(subgoals, 1))
 
@@ -38,7 +54,10 @@ def format_plan(subgoals: list[str]) -> str:
 def format_lemmas(lemmas: list[dict]) -> str:
     if not lemmas:
         return ""
-    return "Useful Mathlib lemmas:\n" + "\n".join(f"- {l['name']} : {l.get('signature', '')}" for l in lemmas)
+    def sig(l):
+        t = l.get("signature", "")
+        return t if len(t) <= MAX_SIG else t[:MAX_SIG] + " …"
+    return "Useful Mathlib lemmas:\n" + "\n".join(f"- {l['name']} : {sig(l)}" for l in lemmas)
 
 
 def _blocks(*parts: str) -> str:

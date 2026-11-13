@@ -16,6 +16,7 @@ class RunConfig(BaseModel):
     use_rag: bool = True
     use_critic: bool = True
     top_k: int = 5            # lemas recuperados
+    rag_query: str = "plan"   # consulta del RAG en modo teorema completo: plan | lean | plan+lean | problem
     k_max: int = 3            # intentos por subobjetivo (3-5 en sistema completo)
     r_max: int = 1            # replanificaciones permitidas por problema
     max_llm_calls: int = 30   # tope de seguridad; NFR-3 se reporta como promedio

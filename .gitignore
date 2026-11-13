@@ -4,3 +4,13 @@ __pycache__/
 logs/
 .pytest_cache/
 cache/
+rag_data/
+cache/
+logs/
+__pycache__/
+*.pyc
+rag_data/
+cache/
+logs/
+__pycache__/
+*.pyc

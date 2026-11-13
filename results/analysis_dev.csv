@@ -1,0 +1,11 @@
+problem_id,area,difficulty,baseline_a,baseline_b,sin_rag,sin_critico,completo
+amc12_2000_p20,algebra,intermedio,0,0,0,0,0
+amc12a_2021_p19,conteo,intermedio,0,0,0,0,0
+imo_1962_p2,algebra,avanzado,0,0,0,0,0
+imo_1974_p3,teoria_de_numeros,avanzado,0,0,0,0,0
+mathd_algebra_141,algebra,basico,1,1,1,1,1
+mathd_algebra_33,algebra,basico,0,1,1,1,1
+mathd_algebra_398,algebra,basico,1,1,1,1,1
+mathd_numbertheory_12,conteo,basico,1,1,1,1,1
+mathd_numbertheory_521,teoria_de_numeros,basico,0,0,0,0,1
+mathd_numbertheory_99,teoria_de_numeros,basico,1,0,1,0,1

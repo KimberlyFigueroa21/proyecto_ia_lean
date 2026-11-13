@@ -12,9 +12,10 @@ from langgraph.graph import StateGraph, START, END
 from .contracts import (Action, RunConfig, PlannerIn, PlannerOut, Lemma,
                         GeneratorIn, FormalizerIn, VerifierOut, CriticIn, CriticOut)
 from .agents import (assemble_code, build_critic_text, build_formalizer_text, build_generator_text,
-                    parse_critic, parse_subgoals)
+                    build_rag_queries, parse_critic, parse_subgoals)
 from .llm import LLM
 from .logger import JsonlLogger
+from .retriever import retrieve_many
 
 
 class GraphState(TypedDict, total=False):
@@ -70,12 +71,15 @@ def build_graph(llm: LLM, retriever, verifier, cfg: RunConfig, logger: JsonlLogg
                 "llm_calls": state.get("llm_calls", 0) + 1}
 
     def retrieve(state: GraphState):
-        sg = state["problem"] if whole(state) else state["subgoals"][state["i"]]
         if not cfg.use_rag:
             _log(state, "retriever", "skipped")
             return {"retrieved": []}
         t0 = time.perf_counter()
-        lemmas = [Lemma(**l).model_dump() for l in retriever(sg, cfg.top_k)]
+        if whole(state):                              # cada paso del plan es una consulta corta
+            raw = retrieve_many(retriever, build_rag_queries(state, cfg.rag_query), cfg.top_k)
+        else:
+            raw = retriever(state["subgoals"][state["i"]], cfg.top_k)
+        lemmas = [Lemma(**{k: l[k] for k in ("name", "signature", "score") if k in l}).model_dump() for l in raw]
         _log(state, "retriever", f"{len(lemmas)} lemmas", ms=int((time.perf_counter() - t0) * 1000))
         return {"retrieved": lemmas}
 

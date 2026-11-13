@@ -24,6 +24,7 @@ def get_embedder(model_name: str | None, fake: bool):
         return fake_embed
     from sentence_transformers import SentenceTransformer   # pip install sentence-transformers
     m = SentenceTransformer(model_name)
+    m.max_seq_length = 256            # las firmas largas no aportan más; acelera ~2x el indexado
     return lambda texts: m.encode(texts, batch_size=64, show_progress_bar=True, convert_to_numpy=True)
 
 

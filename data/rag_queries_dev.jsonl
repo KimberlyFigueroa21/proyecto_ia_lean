@@ -1,0 +1,10 @@
+{"problem_id": "mathd_algebra_141", "expected": ["add_sq", "add_pow_two"]}
+{"problem_id": "mathd_algebra_33", "expected": ["div_eq_iff", "eq_div_iff", "div_eq_div_iff"]}
+{"problem_id": "mathd_algebra_398", "expected": ["mul_left_cancel₀", "mul_right_cancel₀", "mul_eq_mul_left_iff", "mul_eq_mul_right_iff"]}
+{"problem_id": "mathd_numbertheory_99", "expected": ["Nat.mul_mod", "Nat.add_mod", "Nat.mod_mod", "Nat.ModEq.mul_left", "Nat.modEq_iff_dvd"]}
+{"problem_id": "mathd_numbertheory_521", "expected": ["Nat.even_iff", "even_iff_two_dvd", "Even.two_dvd", "Nat.sub_eq_iff_eq_add", "Nat.sub_add_cancel"]}
+{"problem_id": "imo_1962_p2", "expected": ["Real.sqrt_lt_sqrt", "Real.sqrt_lt_sqrt_iff", "Real.sqrt_lt'", "Real.lt_sqrt", "Real.sq_sqrt", "Real.sqrt_sq", "Set.mem_Ico"]}
+{"problem_id": "amc12_2000_p20", "expected": ["one_div", "div_eq_inv_mul", "div_add_div", "mul_inv_cancel₀", "eq_div_iff"]}
+{"problem_id": "mathd_numbertheory_12", "expected": ["Nat.card_multiples", "Nat.Ioc_filter_dvd_card_eq_div", "Finset.card_filter"]}
+{"problem_id": "amc12a_2021_p19", "expected": ["Real.sin_eq_sin_iff", "Real.cos_eq_cos_iff", "Real.cos_pi_div_two", "Real.sin_pi_div_two", "Finset.card_pair", "Finset.card_eq_two"]}
+{"problem_id": "imo_1974_p3", "expected": ["add_pow", "Commute.add_pow", "Finset.sum_range_succ", "Nat.sum_range_choose"]}

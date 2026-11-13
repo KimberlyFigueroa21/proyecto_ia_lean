@@ -49,5 +49,6 @@ def run_pipeline_problem(p: dict, llm, verifier, cfg: RunConfig, logger, retriev
             "area": p["area"], "verified": ok, "claimed_correct": ok, "status": s.get("status"),
             "failure_reason": s.get("failure_reason", ""), "trace": (hist[-1]["trace"] if hist else "")[:1000],
             "lean_code": s.get("lean_code", ""), "subgoals": s.get("subgoals", []), "sketch": s.get("sketch", ""),
+            "retrieved": [l["name"] for l in s.get("retrieved", [])],
             "llm_calls": meter.calls, "tokens_in": meter.tokens_in, "tokens_out": meter.tokens_out,
             "latency_s": round(wall, 3), "r": s.get("r", 0), "k": s.get("k", 0)}
