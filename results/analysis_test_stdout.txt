@@ -1,0 +1,93 @@
+# Resultados — conjunto `test` (n = 20)
+
+## 1. pass@1 y costo
+
+| Configuración | pass@1 [Wilson 95 %] | Entregadas como correctas | Falsos positivos | Llamadas/problema | Tokens in / out por problema | Latencia (s) |
+|---|---|---|---|---|---|---|
+| Baseline A | 1/20 = 0.05 [0.01, 0.24] | 1 | 0 | 1.0 | 300 / 748 | 7 |
+| Baseline B | 2/20 = 0.10 [0.03, 0.30] | 20 | 18 | 2.0 | 1113 / 2153 | 12 |
+| Sin RAG | 3/20 = 0.15 [0.05, 0.36] | 3 | 0 | 9.6 | 9753 / 4060 | 132 |
+| Sin Crítico | 2/20 = 0.10 [0.03, 0.30] | 2 | 0 | 3.0 | 2797 / 1063 | 19 |
+| Completo | 2/20 = 0.10 [0.03, 0.30] | 2 | 0 | 10.2 | 11658 / 3371 | 130 |
+
+Falso positivo = prueba entregada como correcta que Lean rechaza. La línea base B no verifica dentro del sistema (la verificación es solo medición), por eso allí aparecen; en las demás configuraciones el veredicto de Lean decide, así que son 0.
+
+## 2. pass@1 por área
+
+| área | Baseline A | Baseline B | Sin RAG | Sin Crítico | Completo |
+|---|---|---|---|---|---|
+| algebra | 1/6 | 2/6 | 2/6 | 2/6 | 2/6 |
+| conteo | 0/7 | 0/7 | 0/7 | 0/7 | 0/7 |
+| teoria_de_numeros | 0/7 | 0/7 | 1/7 | 0/7 | 0/7 |
+
+## 2. pass@1 por dificultad
+
+| dificultad | Baseline A | Baseline B | Sin RAG | Sin Crítico | Completo |
+|---|---|---|---|---|---|
+| avanzado | 1/7 | 1/7 | 1/7 | 1/7 | 1/7 |
+| basico | 0/4 | 1/4 | 2/4 | 1/4 | 1/4 |
+| intermedio | 0/9 | 0/9 | 0/9 | 0/9 | 0/9 |
+
+## 3. Comparaciones pareadas
+
+| Comparación | n | solo 1.º acierta | solo 2.º acierta | Δ pass@1 [bootstrap 95 %] | p (McNemar exacto) | p Bonferroni (×5) |
+|---|---|---|---|---|---|---|
+| Completo vs Sin RAG | 20 | 0 | 1 | -0.05 [-0.15, +0.00] | 1.000 | 1.000 |
+| Completo vs Sin Crítico | 20 | 0 | 0 | +0.00 [+0.00, +0.00] | 1.000 | 1.000 |
+| Completo vs Baseline A | 20 | 1 | 0 | +0.05 [+0.00, +0.15] | 1.000 | 1.000 |
+| Completo vs Baseline B | 20 | 0 | 0 | +0.00 [+0.00, +0.00] | 1.000 | 1.000 |
+| Sin Crítico vs Baseline A | 20 | 1 | 0 | +0.05 [+0.00, +0.15] | 1.000 | 1.000 |
+
+Con n pequeño solo diferencias grandes pueden ser significativas; se reporta igualmente el tamaño de la diferencia con su intervalo.
+
+## 4. Contribución del Crítico y del RAG
+
+| Configuración | Resueltos al primer intento (3 llamadas) | Resueltos tras reintento o replan (>3 llamadas) | Problemas con replanificación | Pruebas verificadas que usan un lema recuperado |
+|---|---|---|---|---|
+| Sin RAG | 2 | 1 | 6 | — |
+| Sin Crítico | 2 | 0 | 0 | 0/2 |
+| Completo | 2 | 0 | 8 | 0/2 |
+
+El pass@1 no distingue si el RAG intervino: esta última columna cuenta las pruebas correctas cuyo texto contiene algún lema recuperado.
+
+## 5. Taxonomía de errores (intentos fallidos)
+
+| Categoría | Baseline A | Baseline B | Sin RAG | Sin Crítico | Completo |
+|---|---|---|---|---|---|
+| alucinación de identificador | 3 | 4 | 4 | 2 | 3 |
+| uso de sorry/admit | 3 | 4 | 2 | 5 | 3 |
+| tipos / instancias | 2 | 2 | 0 | 2 | 4 |
+| tiempo o recursión agotados | 2 | 2 | 2 | 1 | 3 |
+| táctica no cierra la meta | 5 | 3 | 6 | 3 | 3 |
+| sintaxis / formalización | 4 | 2 | 3 | 5 | 2 |
+| otro | 0 | 1 | 0 | 0 | 0 |
+
+Clasificación heurística por el mensaje de Lean del último intento; conviene revisar a mano los casos `otro` y los ambiguos antes de citar cifras.
+
+## 6. Por problema
+
+| problema | área | dificultad | Baseline A | Baseline B | Sin RAG | Sin Crítico | Completo |
+|---|---|---|---|---|---|---|---|
+| aime_1983_p3 | algebra | avanzado | ✗ | ✗ | ✗ | ✗ | ✗ |
+| aime_1989_p8 | algebra | avanzado | ✓ | ✓ | ✓ | ✓ | ✓ |
+| aime_1990_p15 | algebra | avanzado | ✗ | ✗ | ✗ | ✗ | ✗ |
+| aime_1991_p9 | algebra | avanzado | ✗ | ✗ | ✗ | ✗ | ✗ |
+| aime_1994_p3 | teoria_de_numeros | avanzado | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12_2001_p5 | teoria_de_numeros | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12a_2003_p23 | conteo | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12a_2008_p25 | algebra | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12a_2020_p4 | conteo | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12a_2020_p9 | conteo | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12a_2021_p8 | teoria_de_numeros | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12b_2020_p21 | conteo | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12b_2021_p1 | conteo | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| amc12b_2021_p13 | conteo | intermedio | ✗ | ✗ | ✗ | ✗ | ✗ |
+| imo_1959_p1 | teoria_de_numeros | avanzado | ✗ | ✗ | ✗ | ✗ | ✗ |
+| imo_1984_p6 | teoria_de_numeros | avanzado | ✗ | ✗ | ✗ | ✗ | ✗ |
+| mathd_algebra_170 | conteo | basico | ✗ | ✗ | ✗ | ✗ | ✗ |
+| mathd_algebra_441 | algebra | basico | ✗ | ✓ | ✓ | ✓ | ✓ |
+| mathd_numbertheory_353 | teoria_de_numeros | basico | ✗ | ✗ | ✗ | ✗ | ✗ |
+| mathd_numbertheory_430 | teoria_de_numeros | basico | ✗ | ✗ | ✓ | ✗ | ✗ |
+
+
+Guardado: results/analysis_test.md y .csv

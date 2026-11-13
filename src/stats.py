@@ -58,7 +58,7 @@ ERROR_RULES = [
     ("sintaxis / formalización", r"unexpected token|unterminated|parse error|formalization_failure|expected '|expected term"),
     ("uso de sorry/admit", r"sorry|admit"),
     ("enunciado alterado", r"statement_mismatch|enunciado|statement .*(differ|mismatch|changed)"),
-    ("tiempo agotado", r"timeout|heartbeat|deterministic"),
+    ("tiempo o recursión agotados", r"timeout|heartbeat|deterministic|maximum recursion|maxrecdepth"),
     ("tipos / instancias", r"type mismatch|failed to synthesize|typeclass|invalid field|function expected"),
     ("táctica no cierra la meta", r"linarith failed|nlinarith|omega|unsolved goals|simp made no progress|failed|ring_nf|no goals"),
 ]
