@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering
+\caption{Contribution of the Critic and of RAG on the test set. A problem is solved at the first attempt if it needed the minimum of three LLM calls (Planner, Generator, AutoFormalizer); more calls imply retries or replanning. The last column counts correct proofs that contain a retrieved lemma.}
+\label{tab:critic}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccc}
+\hline
+Config. & 1st att. & Retry & Replan & Lemma used \\
+\hline
+w/o RAG & 2 & 1 & 6 & -- \\
+w/o Critic & 2 & 0 & 0 & 0/2 \\
+Full & 2 & 0 & 8 & 0/2 \\
+\hline
+\end{tabular}
+\end{table}

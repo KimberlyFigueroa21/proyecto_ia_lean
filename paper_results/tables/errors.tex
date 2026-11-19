@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\caption{Failure taxonomy on the test set (heuristic classification of the last Lean message of each failed problem).}
+\label{tab:errors}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccccc}
+\hline
+Category & Base A & Base B & w/o RAG & w/o Crit. & Full \\
+\hline
+Tactic fails & 5 & 3 & 6 & 3 & 3 \\
+sorry/admit & 3 & 4 & 2 & 5 & 3 \\
+Unknown ident. & 3 & 4 & 4 & 2 & 3 \\
+Syntax/formal. & 4 & 2 & 3 & 5 & 2 \\
+Timeout/recursion & 2 & 2 & 2 & 1 & 3 \\
+Type/instance & 2 & 2 & 0 & 2 & 4 \\
+Other & 0 & 1 & 0 & 0 & 0 \\
+\textbf{Failed problems} & 19 & 18 & 17 & 18 & 18 \\
+\hline
+\end{tabular}
+\end{table}

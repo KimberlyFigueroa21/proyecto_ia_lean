@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-agent Lean 4 prover: results explorer</title>
+<style>
+:root{--bg:#fafaf9;--card:#fff;--ink:#1c1917;--mute:#57534e;--line:#e7e5e4;--acc:#2563eb;--ok:#15803d;--bad:#b91c1c;--code:#f5f5f4}
+@media (prefers-color-scheme:dark){:root{--bg:#0c0a09;--card:#1c1917;--ink:#f5f5f4;--mute:#a8a29e;--line:#3a3532;--acc:#60a5fa;--ok:#4ade80;--bad:#f87171;--code:#141211}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.15rem;margin:28px 0 10px}
+.sub{color:var(--mute);margin:0 0 18px}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--mute);padding:10px 14px;font:inherit;cursor:pointer}
+nav button[aria-selected=true]{color:var(--acc);border-bottom-color:var(--acc)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.seg button{background:var(--card);color:var(--ink);border:0;padding:6px 16px;font:inherit;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--acc);color:#fff}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line)}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+th{font-size:.85rem;color:var(--mute);font-weight:600}
+.note{color:var(--mute);font-size:.92rem;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px}
+figure img{width:100%;height:auto;display:block}
+figcaption{font-size:.85rem;color:#57534e;padding:6px 4px 2px}
+select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);max-width:100%}
+label{display:block;font-size:.85rem;color:var(--mute);margin:12px 0 4px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font:13px/1.45 ui-monospace,Consolas,monospace;margin:6px 0;white-space:pre-wrap;word-break:break-word}
+details{margin:8px 0}summary{cursor:pointer;color:var(--mute)}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}
+.star{color:var(--acc);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:10px 0}
+.tab{display:none}.tab.on{display:block}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Multi-agent generative AI with formal verification in Lean 4</h1>
+<p class="sub">Results explorer for 5 experimental configurations on 30 miniF2F problems. It only reads saved results: no LLM calls, no Lean.</p>
+<nav role="tablist">
+  <button role="tab" data-tab="summary" aria-selected="true">Summary</button>
+  <button role="tab" data-tab="explorer" aria-selected="false">Problem explorer</button>
+  <button role="tab" data-tab="system" aria-selected="false">System</button>
+  <button role="tab" data-tab="about" aria-selected="false">About</button>
+</nav>
+
+<section id="summary" class="tab on">
+  <div class="seg" id="seg-summary"><button data-s="test" aria-pressed="true">test (n=20)</button><button data-s="dev" aria-pressed="false">dev (n=10)</button></div>
+  <p class="note" id="sum-note"></p>
+  <div class="tablewrap"><table id="sum-table"></table></div>
+  <h2>Figures (test set)</h2>
+  <div class="grid">
+    <figure><img src="figures/fig_pass_at_1.png" alt="pass@1, delivered vs verified"><figcaption>pass@1 and delivered vs. verified proofs</figcaption></figure>
+    <figure><img src="figures/fig_per_problem.png" alt="Problems solved per configuration"><figcaption>Problems solved by each configuration</figcaption></figure>
+    <figure><img src="figures/fig_cost.png" alt="Cost vs pass@1"><figcaption>Cost vs. pass@1</figcaption></figure>
+    <figure><img src="figures/fig_errors.png" alt="Failure categories"><figcaption>Failure categories (heuristic classification)</figcaption></figure>
+  </div>
+</section>
+
+<section id="explorer" class="tab">
+  <div class="seg" id="seg-explorer"><button data-s="test" aria-pressed="true">test</button><button data-s="dev" aria-pressed="false">dev</button></div>
+  <label for="prob">Problem (✓ = solved by at least one configuration)</label>
+  <select id="prob"></select>
+  <div class="card" id="prob-head"></div>
+  <strong>Formal statement (Lean 4)</strong><pre id="prob-lean"></pre>
+  <div class="tablewrap"><table id="verdicts"></table></div>
+  <label for="cfg">Inspect configuration</label>
+  <select id="cfg"></select>
+  <div class="card" id="run-info"></div>
+  <strong>Final Lean proof</strong><pre id="run-code"></pre>
+  <details><summary>Last Lean message</summary><pre id="run-trace"></pre></details>
+  <details><summary>Plan and retrieved lemmas</summary><pre id="run-extra"></pre></details>
+</section>
+
+<section id="system" class="tab">
+  <p>Agents: Planner, Retriever (RAG), Generator, AutoFormalizer, LeanVerifier, Critic, orchestrated with LangGraph.
+  Flow: PLAN → RETRIEVE → GENERATE → FORMALIZE → VERIFY → (CRITIQUE | DONE | FAIL). The Critic can retry a subgoal (k ≤ 3) or replan (r ≤ 1).</p>
+  <div class="grid">
+    <figure><img src="figures/arch_graph.png" alt="Agent graph"><figcaption>Agent graph</figcaption></figure>
+    <figure><img src="figures/arch_flow.png" alt="Control flow"><figcaption>Control flow</figcaption></figure>
+  </div>
+</section>
+
+<section id="about" class="tab">
+  <h2>What this is</h2>
+  <p>A research prototype for a course project (Inteligencia Computacional, UPTC Sogamoso). Six agents try to prove 30 miniF2F problems in
+  <strong>Lean 4 / Mathlib</strong>. A proof counts only if the Lean kernel accepts it.</p>
+  <h2>Main findings (test set, n = 20)</h2>
+  <ul>
+    <li>Few problems are solved by any configuration (1–3 of 20). Differences are at most one problem and none is statistically significant (exact McNemar with Bonferroni correction).</li>
+    <li>Baseline B, which never checks its own proof, delivered 20 proofs and Lean rejected 18 of them (90 %). Configurations with the verifier delivered no false proof.</li>
+    <li>No correct proof used a lemma retrieved by RAG, so RAG gets no credit in this experiment.</li>
+    <li>The Critic/replanning loop costs about 10 LLM calls per problem against 1–3 for the simpler configurations.</li>
+  </ul>
+  <h2>Limitations</h2>
+  <p>Small evaluation set (30 problems), a single model (<code>gemini-3.5-flash-lite</code>, free tier) and a single run per configuration;
+  tuning on 10 development problems; possible training-data contamination (miniF2F is public); heuristic error taxonomy;
+  Lean 4.36.0-rc2 with a fixed Mathlib commit. Results describe trends, not general capability.</p>
+  <h2>Reproduction</h2>
+  <p>This page does not run Lean or call any LLM. Code, prompts and instructions:
+  <a href="https://github.com/KimberlyFigueroa21/proyecto_ia_lean">github.com/KimberlyFigueroa21/proyecto_ia_lean</a> (tag <code>congelado</code>).</p>
+  <p>Authors: Kimberly Natalia Figueroa Zapata, Alisson Páez Alarcón (UPTC Sogamoso).</p>
+</section>
+</div>
+
+<script>
+const LABEL={baseline_a:"Baseline A (single call, verified)",baseline_b:"Baseline B (single call, not verified)",sin_rag:"w/o RAG",sin_critico:"w/o Critic",completo:"Full system"};
+const SHORT={baseline_a:"Baseline A",baseline_b:"Baseline B",sin_rag:"w/o RAG",sin_critico:"w/o Critic",completo:"Full"};
+const CONFIGS=Object.keys(LABEL);
+let D=null, split={summary:"test",explorer:"test"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function tabs(){
+  document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
+    document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.id===b.dataset.tab));
+  });
+  for(const key of ["summary","explorer"]){
+    document.querySelectorAll("#seg-"+key+" button").forEach(b=>b.onclick=()=>{
+      split[key]=b.dataset.s;
+      document.querySelectorAll("#seg-"+key+" button").forEach(x=>x.setAttribute("aria-pressed",x===b));
+      key==="summary"?renderSummary():fillProblems();
+    });
+  }
+}
+function renderSummary(){
+  const s=split.summary, rows=D.summary[s], n=rows[0].n;
+  $("#sum-note").textContent=`${s.toUpperCase()}: ${n} problems, one run per configuration. pass@1 = fraction of problems whose delivered proof Lean accepts. FP = false positives (delivered as correct but rejected by Lean). `+(s==="test"?"The test set was evaluated once, after the code was frozen.":"These problems were used to build and tune the system, so they are not comparable with test.");
+  $("#sum-table").innerHTML="<tr><th>Configuration</th><th>Solved</th><th>pass@1</th><th>95% Wilson CI</th><th>Delivered</th><th>FP</th><th>Mean LLM calls</th><th>Mean input tokens (k)</th></tr>"+
+    rows.map(r=>`<tr><td>${SHORT[r.config]}</td><td>${r.solved}/${r.n}</td><td>${(r.solved/r.n).toFixed(2)}</td><td>[${r.lo.toFixed(2)}, ${r.hi.toFixed(2)}]</td><td>${r.delivered}</td><td>${r.fp}</td><td>${r.calls}</td><td>${r.tok}</td></tr>`).join("");
+}
+function fillProblems(){
+  const s=split.explorer, ps=D.problems.filter(p=>p.split===s).sort((a,b)=>a.id.localeCompare(b.id));
+  $("#prob").innerHTML=ps.map(p=>{
+    const solved=CONFIGS.some(c=>D.runs[s][c][p.id]?.verified);
+    return `<option value="${esc(p.id)}">${solved?"✓ ":"· "}${esc(p.id)}</option>`}).join("");
+  renderProblem();
+}
+function renderProblem(){
+  const s=split.explorer, id=$("#prob").value, p=D.problems.find(x=>x.id===id);
+  $("#prob-head").innerHTML=`<strong>${esc(p.id)}</strong> — difficulty: ${p.difficulty}, area: ${p.area}, split: ${p.split}<br>${esc(p.nl)}`;
+  $("#prob-lean").textContent=p.lean;
+  $("#verdicts").innerHTML="<tr><th>Configuration</th><th>Verdict</th><th>Delivered</th><th>LLM calls</th><th>Failure category</th></tr>"+
+    CONFIGS.map(c=>{const r=D.runs[s][c][id];
+      if(!r) return `<tr><td>${SHORT[c]}</td><td colspan=4>no result</td></tr>`;
+      const v=r.verified?'<span class="ok">✓ verified</span>':(r.delivered?'<span class="bad">✗ rejected by Lean</span>':'<span class="bad">✗ not delivered</span>');
+      return `<tr><td>${SHORT[c]}</td><td>${v}</td><td>${r.delivered?"yes":"no"}</td><td>${r.calls??"—"}</td><td>${r.verified?"—":esc(r.err)}</td></tr>`}).join("");
+  renderRun();
+}
+function renderRun(){
+  const s=split.explorer, id=$("#prob").value, c=$("#cfg").value, r=D.runs[s][c][id];
+  if(!r){$("#run-info").textContent="No result for this configuration.";$("#run-code").textContent="";$("#run-trace").textContent="";$("#run-extra").textContent="";return}
+  let h=`<strong>${esc(LABEL[c])}</strong> — ${r.verified?'<span class="ok">verified by Lean ✓</span>':'<span class="bad">not verified ✗</span>'}<br>LLM calls: ${r.calls??"—"} · input tokens: ${r.tok??"—"} · latency: ${r.lat??"—"} s`;
+  if(r.r!=null) h+=`<br>Replans: ${r.r} · retries on last subgoal: ${r.k} · final status: ${esc(r.status)}${r.reason?" ("+esc(r.reason)+")":""}`;
+  $("#run-info").innerHTML=h;
+  $("#run-code").textContent=r.code||"(no code produced)";
+  $("#run-trace").textContent=r.trace||"(empty)";
+  let x="";
+  if(r.subgoals.length) x+="Subgoals:\n"+r.subgoals.map((g,i)=>`${i+1}. ${g}`).join("\n")+"\n\n";
+  if(r.lemmas.length) x+="Retrieved lemmas (★ = appears in final proof):\n"+r.lemmas.map(([n,u])=>(u?"★ ":"  ")+n).join("\n");
+  $("#run-extra").textContent=x||"(none for this configuration)";
+}
+fetch("data.json").then(r=>r.json()).then(d=>{
+  D=d; tabs();
+  $("#cfg").innerHTML=CONFIGS.map(c=>`<option value="${c}">${esc(LABEL[c])}</option>`).join("");
+  $("#cfg").value="completo";
+  $("#prob").onchange=renderProblem; $("#cfg").onchange=renderRun;
+  renderSummary(); fillProblems();
+}).catch(e=>{document.querySelector(".wrap").insertAdjacentHTML("beforeend","<p class=bad>Could not load data.json: "+esc(e)+"</p>")});
+</script>
+</body>
+</html>
